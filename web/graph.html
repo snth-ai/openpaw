@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenPaw — Graph Memory</title>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a2e; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        #app { display: flex; height: 100vh; }
+        #graph { flex: 1; }
+        #sidebar { width: 320px; background: #16213e; padding: 16px; overflow-y: auto; border-left: 1px solid #2a2a4a; }
+        h1 { font-size: 18px; margin-bottom: 12px; color: #7B68EE; }
+        h2 { font-size: 14px; margin: 12px 0 8px; color: #9B59B6; }
+        .stats { font-size: 12px; color: #888; margin-bottom: 16px; }
+        .stats span { color: #4A90D9; font-weight: bold; }
+        input { width: 100%; padding: 8px; background: #1a1a2e; border: 1px solid #2a2a4a; color: #e0e0e0; border-radius: 4px; margin-bottom: 12px; }
+        .node-info { background: #1a1a2e; padding: 12px; border-radius: 6px; margin-bottom: 8px; }
+        .node-name { font-size: 16px; font-weight: bold; }
+        .node-type { font-size: 11px; color: #888; text-transform: uppercase; }
+        .node-summary { font-size: 13px; color: #aaa; margin-top: 4px; }
+        .edge-item { font-size: 12px; padding: 6px 0; border-bottom: 1px solid #2a2a4a; }
+        .edge-relation { color: #2ECC71; }
+        .edge-target { color: #4A90D9; }
+        .edge-context { color: #666; font-style: italic; }
+        .legend { margin-top: 16px; }
+        .legend-item { display: flex; align-items: center; margin: 4px 0; font-size: 12px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .filters { margin-bottom: 12px; }
+        .filter-btn { padding: 4px 8px; margin: 2px; font-size: 11px; background: #2a2a4a; border: none; color: #e0e0e0; border-radius: 3px; cursor: pointer; }
+        .filter-btn.active { background: #7B68EE; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="graph"></div>
+        <div id="sidebar">
+            <h1>○ Graph Memory</h1>
+            <div class="stats" id="stats">Loading...</div>
+            <input type="text" id="search" placeholder="Search nodes..." />
+
+            <div class="filters" id="filters"></div>
+
+            <div id="detail">
+                <p style="color:#666; font-size:13px;">Click a node to see details</p>
+            </div>
+
+            <div class="legend">
+                <h2>Node Types</h2>
+                <div class="legend-item"><div class="legend-dot" style="background:#4A90D9"></div>person</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#7B68EE"></div>project</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#2ECC71"></div>place</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#E67E22"></div>organization</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#9B59B6"></div>concept</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#E74C3C"></div>event</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let network = null;
+    let allData = null;
+
+    async function load() {
+        const resp = await fetch('/api/graph/export');
+        allData = await resp.json();
+
+        document.getElementById('stats').innerHTML =
+            `<span>${allData.stats?.total_nodes || 0}</span> nodes · ` +
+            `<span>${allData.stats?.active_edges || 0}</span> edges · ` +
+            `<span>${allData.stats?.total_episodes || 0}</span> episodes`;
+
+        renderGraph(allData);
+        renderFilters(allData);
+    }
+
+    function renderGraph(data) {
+        const nodes = new vis.DataSet((data.nodes || []).map(n => ({
+            id: n.id,
+            label: n.label,
+            color: { background: n.color, border: n.color, highlight: { background: '#fff', border: n.color }},
+            size: n.size,
+            font: { color: '#e0e0e0', size: 12 },
+            title: `${n.label} (${n.type})\n${n.summary || ''}`,
+            _type: n.type,
+            _data: n
+        })));
+
+        const edges = new vis.DataSet((data.edges || []).map(e => ({
+            id: e.id,
+            from: e.from,
+            to: e.to,
+            label: e.label,
+            color: { color: e.color, opacity: e.active ? 0.8 : 0.3 },
+            width: e.width,
+            dashes: e.dashes,
+            font: { color: '#666', size: 9, strokeWidth: 0 },
+            arrows: { to: { enabled: true, scaleFactor: 0.5 }},
+            _data: e
+        })));
+
+        const container = document.getElementById('graph');
+        const options = {
+            physics: {
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: { gravitationalConstant: -50, centralGravity: 0.01, springLength: 150 },
+                stabilization: { iterations: 100 }
+            },
+            interaction: { hover: true, zoomView: true, dragView: true },
+            edges: { smooth: { type: 'continuous' }},
+        };
+
+        network = new vis.Network(container, { nodes, edges }, options);
+
+        network.on('click', (params) => {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                showNodeDetail(nodeId, data);
+            }
+        });
+    }
+
+    function showNodeDetail(nodeId, data) {
+        const node = (data.nodes || []).find(n => n.id === nodeId);
+        if (!node) return;
+
+        const edges = (data.edges || []).filter(e => e.from === nodeId || e.to === nodeId);
+        const nodeMap = {};
+        (data.nodes || []).forEach(n => nodeMap[n.id] = n);
+
+        let html = `
+            <div class="node-info">
+                <div class="node-name" style="color:${node.color}">${node.label}</div>
+                <div class="node-type">${node.type} · mentions: ${node.mention_count}</div>
+                ${node.summary ? `<div class="node-summary">${node.summary}</div>` : ''}
+            </div>
+            <h2>Relations (${edges.length})</h2>
+        `;
+
+        edges.forEach(e => {
+            const isSource = e.from === nodeId;
+            const otherId = isSource ? e.to : e.from;
+            const other = nodeMap[otherId];
+            const otherName = other ? other.label : otherId;
+            const direction = isSource ? '→' : '←';
+
+            html += `<div class="edge-item">
+                ${direction} <span class="edge-relation">${e.label}</span>
+                <span class="edge-target">${otherName}</span>
+                ${e.dashes ? ' <span style="color:#E74C3C">(invalidated)</span>' : ''}
+                ${e._data?.context ? `<br><span class="edge-context">${e._data.context}</span>` : ''}
+            </div>`;
+        });
+
+        document.getElementById('detail').innerHTML = html;
+    }
+
+    function renderFilters(data) {
+        const types = [...new Set((data.nodes || []).map(n => n.type))];
+        const container = document.getElementById('filters');
+
+        types.forEach(type => {
+            const btn = document.createElement('button');
+            btn.className = 'filter-btn active';
+            btn.textContent = type;
+            btn.onclick = () => {
+                btn.classList.toggle('active');
+                filterGraph();
+            };
+            container.appendChild(btn);
+        });
+    }
+
+    function filterGraph() {
+        const activeTypes = [...document.querySelectorAll('.filter-btn.active')].map(b => b.textContent);
+        if (!allData || !network) return;
+
+        const visibleNodes = (allData.nodes || []).filter(n => activeTypes.includes(n.type)).map(n => n.id);
+        const nodeSet = new Set(visibleNodes);
+
+        network.body.data.nodes.forEach(n => {
+            network.body.data.nodes.update({ id: n.id, hidden: !nodeSet.has(n.id) });
+        });
+    }
+
+    document.getElementById('search').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        if (!allData || !network) return;
+
+        if (q === '') {
+            network.body.data.nodes.forEach(n => {
+                network.body.data.nodes.update({ id: n.id, hidden: false });
+            });
+            return;
+        }
+
+        (allData.nodes || []).forEach(n => {
+            const match = n.label.toLowerCase().includes(q) || (n.summary || '').toLowerCase().includes(q);
+            network.body.data.nodes.update({ id: n.id, hidden: !match });
+        });
+    });
+
+    load();
+    </script>
+</body>
+</html>

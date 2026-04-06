@@ -1,0 +1,22 @@
+{
+  "name": "add_numbers",
+  "description": "Складывает два числа и возвращает результат",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "a": {
+        "type": "number",
+        "description": "Первое число"
+      },
+      "b": {
+        "type": "number",
+        "description": "Второе число"
+      }
+    },
+    "required": [
+      "a",
+      "b"
+    ]
+  },
+  "command": "run.sh"
+}

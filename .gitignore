@@ -1,0 +1,14 @@
+.env
+SOUL.md
+IDENTITY.md
+AGENTS.md
+data/
+lib/
+include/
+openpaw
+*.backup
+.DS_Store
+media/generated/
+personality/*.jpg
+personality/*.png
+workspace/
