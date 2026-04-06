@@ -1,6 +1,7 @@
 package soul
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -153,5 +154,98 @@ func TestDescribeAxis(t *testing.T) {
 		if !strings.Contains(desc, tt.contains) {
 			t.Errorf("value=%.1f: got %q, want contains %q", tt.value, desc, tt.contains)
 		}
+	}
+}
+
+func TestLoadFile_Exists(t *testing.T) {
+	// Create a temp file
+	tmpDir := t.TempDir()
+	tmpFile := tmpDir + "/test.md"
+	content := "Hello, World!\n\n"
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	got := LoadFile(tmpFile)
+	want := "Hello, World!" // TrimSpace should remove trailing whitespace
+	if got != want {
+		t.Errorf("LoadFile() = %q, want %q", got, want)
+	}
+}
+
+func TestLoadFile_NotFound(t *testing.T) {
+	got := LoadFile("/nonexistent/path/file.md")
+	if got != "" {
+		t.Errorf("LoadFile() = %q, want empty string for missing file", got)
+	}
+}
+
+func TestLoadConfig_AllFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create all three files
+	os.WriteFile(tmpDir+"/SOUL.md", []byte("I am a test soul"), 0644)
+	os.WriteFile(tmpDir+"/IDENTITY.md", []byte("Test identity"), 0644)
+	os.WriteFile(tmpDir+"/AGENTS.md", []byte("Test agents"), 0644)
+
+	cfg := LoadConfig(tmpDir)
+
+	if cfg.Soul != "I am a test soul" {
+		t.Errorf("Soul = %q, want %q", cfg.Soul, "I am a test soul")
+	}
+	if cfg.Identity != "Test identity" {
+		t.Errorf("Identity = %q, want %q", cfg.Identity, "Test identity")
+	}
+	if cfg.Agents != "Test agents" {
+		t.Errorf("Agents = %q, want %q", cfg.Agents, "Test agents")
+	}
+}
+
+func TestLoadConfig_MissingFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Only create SOUL.md
+	os.WriteFile(tmpDir+"/SOUL.md", []byte("Just soul"), 0644)
+
+	cfg := LoadConfig(tmpDir)
+
+	if cfg.Soul != "Just soul" {
+		t.Errorf("Soul = %q, want %q", cfg.Soul, "Just soul")
+	}
+	if cfg.Identity != "" {
+		t.Errorf("Identity = %q, want empty", cfg.Identity)
+	}
+	if cfg.Agents != "" {
+		t.Errorf("Agents = %q, want empty", cfg.Agents)
+	}
+}
+
+func TestLoadConfig_EmptyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := LoadConfig(tmpDir)
+
+	if cfg.Soul != "" {
+		t.Errorf("Soul = %q, want empty", cfg.Soul)
+	}
+	if cfg.Identity != "" {
+		t.Errorf("Identity = %q, want empty", cfg.Identity)
+	}
+	if cfg.Agents != "" {
+		t.Errorf("Agents = %q, want empty", cfg.Agents)
+	}
+}
+
+func TestConfig_TotalBytes(t *testing.T) {
+	cfg := Config{
+		Soul:     "12345",    // 5 bytes
+		Identity: "1234567",  // 7 bytes
+		Agents:   "12345678", // 8 bytes
+	}
+
+	got := cfg.TotalBytes()
+	want := 5 + 7 + 8
+	if got != want {
+		t.Errorf("TotalBytes() = %d, want %d", got, want)
 	}
 }
