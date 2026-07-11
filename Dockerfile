@@ -20,9 +20,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY --from=builder /app/openpaw .
-COPY SOUL.md .
+# Default identity — SOUL.md is gitignored (per-synth), so a fresh clone must
+# still build; override with your own via bind mount at /app/SOUL.md
+COPY SOUL.example.md ./SOUL.md
+# Static assets served at runtime: /graph page + built-in skills
+COPY web ./web
+COPY skills ./skills
 
-RUN mkdir -p /app/data /app/skills
+RUN mkdir -p /app/data
 
 EXPOSE 8080
 

@@ -34,6 +34,18 @@ make build
 - API keys: OpenRouter (LLM), Gemini (embeddings, TTS), Telegram Bot Token
 - Optional: xAI (image generation), Perplexity (web search)
 
+## Docker
+
+```bash
+docker build -t openpaw .
+docker run -d --env-file .env \
+  -v $(pwd)/SOUL.md:/app/SOUL.md \
+  -v $(pwd)/data:/app/data \
+  -p 8080:8080 openpaw
+```
+
+The image bakes `SOUL.example.md` as a placeholder identity — mount your own `SOUL.md` over `/app/SOUL.md` (without the mount the synth boots as the template). The `data` mount keeps `synth.db` (memory, sessions, emotional state) across container recreations. The app listens on port 8080 (`PORT` env to change).
+
 ## Architecture
 
 ```
