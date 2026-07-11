@@ -2,18 +2,13 @@ FROM golang:1.26-bookworm AS builder
 
 WORKDIR /app
 
-# LanceDB native lib
-RUN apt-get update && apt-get install -y curl && \
-    curl -sSL https://raw.githubusercontent.com/lancedb/lancedb-go/main/scripts/download-artifacts.sh | bash
-
 # Go deps
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Build
+# Build (pure Go — no CGO)
 COPY . .
-ENV CGO_CFLAGS="-I/app/include"
-ENV CGO_LDFLAGS="/app/lib/linux_amd64/liblancedb_go.a -lm -ldl -lpthread"
+ENV CGO_ENABLED=0
 RUN go build -o openpaw .
 
 # Runtime

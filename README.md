@@ -30,7 +30,7 @@ make build
 
 ## Requirements
 
-- Go 1.24+
+- Go 1.26+
 - API keys: OpenRouter (LLM), Gemini (embeddings, TTS), Telegram Bot Token
 - Optional: xAI (image generation), Perplexity (web search)
 
@@ -60,7 +60,7 @@ User ←→ Deliver (Telegram/HTTP) ←→ Agent Loop ←→ LLM
 |---------|-------------|
 | `llm/` | LLM provider abstraction (OpenRouter, xAI, any OpenAI-compatible) |
 | `tools/` | 30+ tool implementations |
-| `memory/` | Vector store (LanceDB) + hybrid search (BM25 + vector + rerank) |
+| `memory/` | Vector store (SQLite-backed) + hybrid search (BM25 + vector + rerank) |
 | `memory/graph/` | Knowledge graph (SQLite, bi-temporal edges, decay) |
 | `emotional/` | 6-axis emotional state with decay and cross-axis coupling |
 | `personality/` | 10-axis personality matrix |

@@ -29,7 +29,7 @@ chatHandler receives messages
   │    │    ├─ Each fact: {text, category, importance}
   │    │    ├─ Filter: importance >= 0.3
   │    │    ├─ Generate embedding for each fact
-  │    │    └─ Save to Memory Log (LanceDB)
+  │    │    └─ Save to Memory Log (vector store)
   │    │
   │    ├─ Step 2: Summarize old messages
   │    │    ├─ LLM prompt: "summarize preserving topics, tone, unresolved threads"

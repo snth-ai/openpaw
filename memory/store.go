@@ -15,7 +15,7 @@ import (
 )
 
 // Store — интерфейс хранилища памяти.
-// MVP: JSON файл + brute-force cosine. Потом: LanceDB.
+// Реализации: SQLite (storage.MemoryStore) и JSON-файл (FileStore).
 type Store interface {
 	Add(m *Memory) error
 	Search(embedding []float32, limit int, scope string) ([]SearchResult, error)

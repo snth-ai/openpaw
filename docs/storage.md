@@ -65,28 +65,15 @@ Old `memory.FileStore` (JSON) and `session.Store` (in-memory) are replaced by:
 
 Old packages `session/` and `memory/store.go` FileStore are no longer used in main.go.
 
-## LanceDB Vector Store
+## Vector Store
 
-For vector search, LanceDB is used alongside SQLite. SQLite handles structured state, LanceDB handles embeddings.
-
-### storage/lancedb.go — LanceStore (implements memory.Store)
-- Uses `github.com/lancedb/lancedb-go` (v0.1.2, CGO + pre-built Rust native lib)
-- Table `memories` with 768-dim float32 vector column
-- Native vector search (cosine similarity with indices)
-- Arrow-based record format for insert
-- Auto-fallback: if LanceDB fails to connect, SQLite MemoryStore is used
-
-### Build requirements
-LanceDB requires CGO and native library. Use Makefile:
+Vector search is SQLite-backed via `storage.MemoryStore` (see above): embeddings live as BLOBs in `synth.db`, cosine similarity is computed in Go. One database file holds both structured state and embeddings; the build is pure Go — no CGO, no native libraries:
 ```bash
-make build   # sets CGO_CFLAGS and CGO_LDFLAGS automatically
-make run     # runs with CGO flags
+make build
+make run
 ```
 
-Native lib location: `lib/darwin_arm64/liblancedb_go.a` (downloaded via download-artifacts.sh)
-
-### Data path
-- `LANCEDB_PATH` env var (default: `./data/memory.lance`)
+> **Upgrade note:** earlier builds could store vector memories in LanceDB (`./data/memory.lance`, `LANCEDB_PATH` env). LanceDB support has been removed; those files are no longer read. If such a directory exists, its contents are inert — memories live in `synth.db` now.
 
 ## Graph Memory Tables (SQLite)
 
@@ -114,12 +101,11 @@ Indices: active edges by from/to, relation_group, node name (case-insensitive), 
 
 ## What's NOT Implemented Yet
 
-- Full-text search via LanceDB FTS or SQLite FTS5
-- LanceDB index creation (IVF, HNSW) for large-scale search
+- Full-text search via SQLite FTS5
+- ANN indices (IVF, HNSW) for large-scale vector search
 - Graph visualization export with full edge data
 
 ## ENV
 
 - `DB_PATH` — path to SQLite file (default: `./data/synth.db`)
-- `LANCEDB_PATH` — path to LanceDB directory (default: `./data/memory.lance`)
 - `MEMORY_LOOP_MODEL` — cheap model for graph retrieval (default: `google/gemini-3.1-flash-lite-preview`)

@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Language:** Go — memory efficient (~20-50MB per instance), single binary deployment
 - **LLM:** OpenRouter (model-agnostic), any OpenAI-compatible API
-- **Memory:** Dual-layer — Graph (SQLite knowledge graph) + Vector (LanceDB embeddings with BM25 hybrid search)
+- **Memory:** Dual-layer — Graph (SQLite knowledge graph) + Vector (SQLite-stored embeddings with BM25 hybrid search)
 - **Voice TTS:** Gemini TTS | **Voice STT:** Gemini native audio
 - **Agent Loop:** message → LLM → tool_calls → execute → LLM → response
 
@@ -25,8 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Building
 
 ```bash
-# Install LanceDB native lib (see lib/ directory)
-make build    # produces ./openpaw binary
+make build    # produces ./openpaw binary (pure Go, no CGO or native libs)
 ```
 
 ## Running
@@ -42,7 +41,7 @@ make run
 
 - `llm/` — Provider abstraction (OpenRouter, xAI, any OpenAI-compatible)
 - `tools/` — Tool interface + 30+ implementations
-- `memory/` — Vector store (LanceDB) + hybrid search
+- `memory/` — Vector store (SQLite-backed) + hybrid search
 - `memory/graph/` — Knowledge graph (SQLite, bi-temporal edges, decay)
 - `emotional/` — 6-axis emotional state with decay and cross-axis coupling
 - `personality/` — 10-axis personality matrix

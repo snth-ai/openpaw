@@ -141,21 +141,8 @@ func main() {
 	// providerReg implements Provider interface — use it everywhere
 	var provider llm.Provider = providerReg
 
-	// Memory system — LanceDB for vector search, SQLite as fallback
-	lancePath := os.Getenv("LANCEDB_PATH")
-	if lancePath == "" {
-		lancePath = "./data/memory.lance"
-	}
-
-	var memStore memory.Store
-	lanceStore, err := storage.NewLanceStore(lancePath)
-	if err != nil {
-		log.Printf("lancedb unavailable (%v), falling back to SQLite memory store", err)
-		memStore = storage.NewMemoryStore(db)
-	} else {
-		memStore = lanceStore
-		defer lanceStore.Close()
-	}
+	// Memory system — SQLite-backed vector store
+	var memStore memory.Store = storage.NewMemoryStore(db)
 
 	var embedder *memory.Embedder
 	var reranker *memory.Reranker
