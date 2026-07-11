@@ -1,6 +1,9 @@
 package memory
 
-import "time"
+import (
+	"math"
+	"time"
+)
 
 const (
 	DefaultDecayFactor = 0.995 // importance *= factor per day
@@ -25,20 +28,19 @@ func DefaultDecayConfig() DecayConfig {
 }
 
 // ApplyDecay применяет decay к importance на основе времени с последнего обновления.
+// Фактор дробный (factor^days), а decay-часы сбрасываются здесь же — иначе
+// часовой maintenance-тик применяет полный дневной фактор и/или декэит
+// повторно от того же UpdatedAt.
 func ApplyDecay(m *Memory, cfg DecayConfig) {
 	days := time.Since(m.UpdatedAt).Hours() / 24
 	if days < 0.01 {
 		return
 	}
-	// importance *= decay_factor ^ days
-	factor := 1.0
-	for d := 0.0; d < days; d += 1.0 {
-		factor *= cfg.DecayFactor
-	}
-	m.Importance *= factor
+	m.Importance *= math.Pow(cfg.DecayFactor, days)
 	if m.Importance < cfg.MinImportance {
 		m.Importance = 0
 	}
+	m.UpdatedAt = time.Now()
 }
 
 // BoostAccess увеличивает importance при recall.

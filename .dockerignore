@@ -1,0 +1,12 @@
+.git
+.claude
+.env
+SOUL.md
+IDENTITY.md
+AGENTS.md
+data/
+workspace/
+media/generated/
+openpaw
+*.backup
+.DS_Store
