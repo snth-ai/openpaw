@@ -28,10 +28,10 @@ type memoryRow struct {
 	Scope       string  `db:"scope"`
 	Importance  float64 `db:"importance"`
 	Embedding   []byte  `db:"embedding"`
-	AccessCount int     `db:"access_count"`
-	CreatedAt   string  `db:"created_at"`
-	UpdatedAt   string  `db:"updated_at"`
-	LastAccess  string  `db:"last_access"`
+	AccessCount int       `db:"access_count"`
+	CreatedAt   time.Time `db:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at"`
+	LastAccess  time.Time `db:"last_access"`
 }
 
 func (r *memoryRow) toMemory() memory.Memory {
@@ -45,9 +45,11 @@ func (r *memoryRow) toMemory() memory.Memory {
 		Embedding:   decodeEmbedding(r.Embedding),
 		AccessCount: r.AccessCount,
 	}
-	m.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", r.CreatedAt)
-	m.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", r.UpdatedAt)
-	m.LastAccess, _ = time.Parse("2006-01-02 15:04:05", r.LastAccess)
+	// DATETIME-колонки драйвер отдаёт как time.Time — никакого строкового
+	// парсинга: нулевой UpdatedAt превращает decay в удаление записи.
+	m.CreatedAt = r.CreatedAt
+	m.UpdatedAt = r.UpdatedAt
+	m.LastAccess = r.LastAccess
 	return m
 }
 
@@ -73,9 +75,7 @@ func (s *MemoryStore) Add(m *memory.Memory) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, m.ID, m.Text, string(m.Category), string(m.ContentType), m.Scope,
 		m.Importance, encodeEmbedding(m.Embedding), m.AccessCount,
-		m.CreatedAt.Format("2006-01-02 15:04:05"),
-		m.UpdatedAt.Format("2006-01-02 15:04:05"),
-		m.LastAccess.Format("2006-01-02 15:04:05"))
+		m.CreatedAt.UTC(), m.UpdatedAt.UTC(), m.LastAccess.UTC())
 	return err
 }
 
@@ -92,7 +92,7 @@ func (s *MemoryStore) Search(embedding []float32, limit int, scope string) ([]me
 		return nil, fmt.Errorf("select memories: %w", err)
 	}
 
-	// Brute-force cosine search (same as FileStore, LanceDB replaces this later)
+	// Brute-force cosine search (same as FileStore)
 	var results []memory.SearchResult
 	for _, row := range rows {
 		m := row.toMemory()
@@ -188,7 +188,7 @@ func (s *MemoryStore) RunDecay(cfg memory.DecayConfig) (int, error) {
 			deleted++
 		} else {
 			s.db.Exec("UPDATE memories SET importance = ?, updated_at = ? WHERE id = ?",
-				m.Importance, time.Now().Format("2006-01-02 15:04:05"), m.ID)
+				m.Importance, time.Now().UTC(), m.ID)
 		}
 	}
 	return deleted, nil
