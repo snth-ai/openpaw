@@ -120,20 +120,38 @@ func main() {
 		},
 		DefaultModel: model,
 	})
+	grokModels := []llm.ModelInfo{
+		{ID: "grok-4.20-0309-reasoning", Display: "Grok 4.20 Reasoning", PriceIn: 2, PriceOut: 6},
+		{ID: "grok-4.20-0309-non-reasoning", Display: "Grok 4.20", PriceIn: 2, PriceOut: 6},
+		{ID: "grok-4-1-fast-non-reasoning", Display: "Grok 4.1 Fast", PriceIn: 0.2, PriceOut: 0.5},
+		{ID: "grok-3-mini", Display: "Grok 3 Mini", PriceIn: 0.3, PriceOut: 0.5},
+	}
 	if xaiKey != "" {
 		providerReg.Register(llm.ProviderEntry{
-			Name:    "xai",
-			Display: "x.AI",
-			Kind:    llm.ProviderXAI,
-			APIKey:  xaiKey,
-			Models: []llm.ModelInfo{
-				{ID: "grok-4.20-0309-reasoning", Display: "Grok 4.20 Reasoning", PriceIn: 2, PriceOut: 6},
-				{ID: "grok-4.20-0309-non-reasoning", Display: "Grok 4.20", PriceIn: 2, PriceOut: 6},
-				{ID: "grok-4-1-fast-non-reasoning", Display: "Grok 4.1 Fast", PriceIn: 0.2, PriceOut: 0.5},
-				{ID: "grok-3-mini", Display: "Grok 3 Mini", PriceIn: 0.3, PriceOut: 0.5},
-			},
+			Name:         "xai",
+			Display:      "x.AI",
+			Kind:         llm.ProviderXAI,
+			APIKey:       xaiKey,
+			Models:       grokModels,
 			DefaultModel: "grok-4.20-0309-reasoning",
 		})
+	}
+	// xAI Grok via OAuth subscription (SuperGrok / X Premium+) — no API key,
+	// bearer is refreshed from a token file written by `make xai-login`.
+	xaiOAuthPath := os.Getenv("XAI_OAUTH_TOKENS")
+	if xaiOAuthPath == "" {
+		xaiOAuthPath = configDir + "/xai_oauth.json"
+	}
+	if _, err := os.Stat(xaiOAuthPath); err == nil {
+		providerReg.Register(llm.ProviderEntry{
+			Name:         "xai-oauth",
+			Display:      "x.AI (SuperGrok/Premium+)",
+			Kind:         llm.ProviderXAIOAuth,
+			CredSource:   llm.NewFileTokenSource(xaiOAuthPath, os.Getenv("XAI_OAUTH_CLIENT_ID"), os.Getenv("XAI_OAUTH_TOKEN_URL")),
+			Models:       grokModels,
+			DefaultModel: "grok-4.20-0309-reasoning",
+		})
+		L.Startup("xai-oauth", "subscription provider registered ("+xaiOAuthPath+")")
 	}
 	providerReg.SetActive("openrouter", model)
 	L.Startup("providers", fmt.Sprintf("%d registered, active: openrouter/%s", len(providerReg.Providers()), model))

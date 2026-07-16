@@ -3,6 +3,8 @@ SOUL.md
 IDENTITY.md
 AGENTS.md
 data/
+xai_oauth.json
+*_oauth.json
 openpaw
 *.backup
 .DS_Store
