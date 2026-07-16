@@ -16,6 +16,7 @@ type ProviderType string
 const (
 	ProviderOpenRouter ProviderType = "openrouter"
 	ProviderXAI        ProviderType = "xai"
+	ProviderXAIOAuth   ProviderType = "xai-oauth"
 	ProviderAnthropic  ProviderType = "anthropic"
 	ProviderOpenAI     ProviderType = "openai"
 	ProviderGeneric    ProviderType = "generic"
@@ -29,6 +30,10 @@ type OpenAICompat struct {
 	BaseURL      string       // full URL to chat completions endpoint
 	ProviderKind ProviderType // for provider-specific behavior
 	ServiceName  string       // for logging/tracking ("openrouter", "xai", etc.)
+
+	// CredSource, when set, supplies a fresh bearer per request (OAuth
+	// subscription providers). Takes precedence over APIKey.
+	CredSource CredentialSource
 }
 
 // NewOpenRouter creates a provider configured for OpenRouter.
@@ -61,6 +66,19 @@ func NewAnthropic(apiKey, model string) *OpenAICompat {
 		BaseURL:      "https://api.anthropic.com/v1/messages",
 		ProviderKind: ProviderAnthropic,
 		ServiceName:  "anthropic",
+	}
+}
+
+// NewXAIOAuth creates a provider that authenticates against xAI's OpenAI-compatible
+// API with an OAuth subscription bearer (SuperGrok / X Premium+) instead of an API
+// key. The bearer is resolved per request from src and refreshed transparently.
+func NewXAIOAuth(src CredentialSource, model string) *OpenAICompat {
+	return &OpenAICompat{
+		Model:        model,
+		BaseURL:      "https://api.x.ai/v1/chat/completions",
+		ProviderKind: ProviderXAIOAuth,
+		ServiceName:  "xai-oauth",
+		CredSource:   src,
 	}
 }
 
@@ -116,10 +134,21 @@ func (o *OpenAICompat) ChatStream(messages []Message, tools []map[string]any, on
 				Ignore: []string{"Google", "Amazon Bedrock"},
 			}
 		}
-	case ProviderXAI:
+	case ProviderXAI, ProviderXAIOAuth:
 		// Don't store conversations on xAI servers
 		f := false
 		body.Store = &f
+	}
+
+	// Resolve the bearer: a CredentialSource (OAuth subscription) takes
+	// precedence over a static APIKey and may refresh transparently here.
+	bearer := o.APIKey
+	if o.CredSource != nil {
+		b, err := o.CredSource.Bearer()
+		if err != nil {
+			return nil, fmt.Errorf("%s: resolve credential: %w", o.ServiceName, err)
+		}
+		bearer = b
 	}
 
 	payload, err := json.Marshal(body)
@@ -132,7 +161,7 @@ func (o *OpenAICompat) ChatStream(messages []Message, tools []map[string]any, on
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+o.APIKey)
+	req.Header.Set("Authorization", "Bearer "+bearer)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -15,13 +15,17 @@ type ModelInfo struct {
 
 // ProviderEntry describes a configured provider with its available models.
 type ProviderEntry struct {
-	Name        string      // "openrouter", "xai"
-	Display     string      // "OpenRouter", "x.AI"
-	Kind        ProviderType
-	APIKey      string
-	BaseURL     string
-	Models      []ModelInfo
-	DefaultModel string     // default model ID for this provider
+	Name         string // "openrouter", "xai"
+	Display      string // "OpenRouter", "x.AI"
+	Kind         ProviderType
+	APIKey       string
+	BaseURL      string
+	Models       []ModelInfo
+	DefaultModel string // default model ID for this provider
+
+	// CredSource supplies a refreshable OAuth bearer for subscription-backed
+	// providers (e.g. xai-oauth). Mutually exclusive with APIKey.
+	CredSource CredentialSource
 }
 
 // ProviderRegistry manages multiple providers and supports runtime switching.
@@ -83,6 +87,8 @@ func (r *ProviderRegistry) SetActive(providerName, modelID string) error {
 		provider = NewOpenRouter(entry.APIKey, modelID)
 	case ProviderXAI:
 		provider = NewXAI(entry.APIKey, modelID)
+	case ProviderXAIOAuth:
+		provider = NewXAIOAuth(entry.CredSource, modelID)
 	case ProviderAnthropic:
 		provider = NewAnthropic(entry.APIKey, modelID)
 	default:
