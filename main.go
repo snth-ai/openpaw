@@ -16,8 +16,8 @@ import (
 	"github.com/openpaw/server/deliver"
 	"github.com/openpaw/server/emotional"
 	"github.com/openpaw/server/grammar"
-	L "github.com/openpaw/server/logger"
 	"github.com/openpaw/server/llm"
+	L "github.com/openpaw/server/logger"
 	"github.com/openpaw/server/memory"
 	graphmem "github.com/openpaw/server/memory/graph"
 	"github.com/openpaw/server/personality"
@@ -126,6 +126,18 @@ func main() {
 		{ID: "grok-4-1-fast-non-reasoning", Display: "Grok 4.1 Fast", PriceIn: 0.2, PriceOut: 0.5},
 		{ID: "grok-3-mini", Display: "Grok 3 Mini", PriceIn: 0.3, PriceOut: 0.5},
 	}
+	// A subscription bearer serves a DIFFERENT catalog than a metered API key:
+	// it adds the grok-4.x flagships and drops the cheap models entirely
+	// (verified against GET api.x.ai/v1/models with a SuperGrok token — grok-4-1-fast
+	// and grok-3-mini 404 there). Sharing grokModels between the two providers
+	// advertised models a subscriber cannot call and hid the ones they can, so the
+	// lists are separate. Prices are 0: inference is flat-rate on the subscription.
+	grokSubModels := []llm.ModelInfo{
+		{ID: "grok-4.5", Display: "Grok 4.5", PriceIn: 0, PriceOut: 0},
+		{ID: "grok-4.3", Display: "Grok 4.3", PriceIn: 0, PriceOut: 0},
+		{ID: "grok-4.20-0309-reasoning", Display: "Grok 4.20 Reasoning", PriceIn: 0, PriceOut: 0},
+		{ID: "grok-4.20-0309-non-reasoning", Display: "Grok 4.20", PriceIn: 0, PriceOut: 0},
+	}
 	if xaiKey != "" {
 		providerReg.Register(llm.ProviderEntry{
 			Name:         "xai",
@@ -148,8 +160,8 @@ func main() {
 			Display:      "x.AI (SuperGrok/Premium+)",
 			Kind:         llm.ProviderXAIOAuth,
 			CredSource:   llm.NewFileTokenSource(xaiOAuthPath, os.Getenv("XAI_OAUTH_CLIENT_ID"), os.Getenv("XAI_OAUTH_TOKEN_URL")),
-			Models:       grokModels,
-			DefaultModel: "grok-4.20-0309-reasoning",
+			Models:       grokSubModels,
+			DefaultModel: "grok-4.5",
 		})
 		L.Startup("xai-oauth", "subscription provider registered ("+xaiOAuthPath+")")
 	}
@@ -779,7 +791,7 @@ func chatHandler(provider llm.Provider, registry *tools.Registry, sessStore *sto
 
 		pending := d.DrainForSession(req.SessionID)
 
-		reply := processMessage(req.Message, req.SessionID, provider, registry, sessStore, promptBuilder,recall, d, compactor, emoState, emoStore, analyzer, pers, guard, tracker, memLoop, graphPipeline)
+		reply := processMessage(req.Message, req.SessionID, provider, registry, sessStore, promptBuilder, recall, d, compactor, emoState, emoStore, analyzer, pers, guard, tracker, memLoop, graphPipeline)
 
 		var proactiveMessages []proactiveMessage
 		for _, p := range pending {
