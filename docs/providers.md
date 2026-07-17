@@ -65,22 +65,24 @@ What xAI actually serves a SuperGrok / X Premium+ token:
   the subscription at any tier; OpenPaw's memory embeddings stay on Gemini
   (`GEMINI_API_KEY`) whatever the active chat provider is.
 
-Both xAI providers are registered with the same `grokModels` list (`main.go`),
-which does not match that catalog:
+So the two providers register different lists (`main.go`) — `grokModels` for the
+metered key, `grokSubModels` for the subscription:
 
 | Model                                 | `xai` (API key) | `xai-oauth` (subscription) |
 |---------------------------------------|-----------------|----------------------------|
-| `grok-4.20-0309-reasoning` (default)  | yes             | yes                        |
+| `grok-4.5`                            | —               | **default**                |
+| `grok-4.3`                            | —               | yes                        |
+| `grok-4.20-0309-reasoning`            | **default**     | yes                        |
 | `grok-4.20-0309-non-reasoning`        | yes             | yes                        |
-| `grok-4-1-fast-non-reasoning`         | yes             | **not served**             |
-| `grok-3-mini`                         | yes             | **not served**             |
-| `grok-4.5` / `grok-4.3`               | no              | served, but unlisted       |
+| `grok-4-1-fast-non-reasoning`         | yes             | —                          |
+| `grok-3-mini`                         | yes             | —                          |
 
-The default works on both. The two cheap models are advertised but a
-subscription bearer 404s them — selecting either under `xai-oauth` fails
-upstream. `grok-4.5` and `grok-4.3` are the reverse: served, but
-`ProviderRegistry.SetActive` rejects any id absent from `Models`, so add them to
-`grokModels` before you can select them.
+The cheap models are API-key-only: a subscription bearer 404s them, so they are
+not offered under `xai-oauth`. The flagships are the reverse — a subscription
+serves them, and `ProviderRegistry.SetActive` rejects any id absent from
+`Models`, so they must be listed to be selectable. `PriceIn`/`PriceOut` are `0`
+for every `xai-oauth` entry: inference is flat-rate on the subscription, and the
+per-token numbers would be a lie in the cost column.
 
 ### Security notes
 
