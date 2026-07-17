@@ -53,6 +53,35 @@ XAI_OAUTH_TOKENS=./xai_oauth.json     # optional; defaults to $CONFIG_DIR/xai_oa
 Switch the active provider to `xai-oauth` at runtime through the provider
 registry (same mechanism as switching to `xai` or `openrouter`).
 
+### Models
+
+A subscription bearer serves a different catalog than a metered `XAI_API_KEY`.
+What xAI actually serves a SuperGrok / X Premium+ token:
+
+- **Chat** — `grok-4.5`, `grok-4.3`, `grok-4.20-0309-reasoning`,
+  `grok-4.20-0309-non-reasoning`.
+- **Media** — `grok-imagine-image` / `-quality`, `grok-imagine-video` / `-1.5`.
+- **Nothing else** — no text embeddings, no TTS, no STT. Those cannot move onto
+  the subscription at any tier; OpenPaw's memory embeddings stay on Gemini
+  (`GEMINI_API_KEY`) whatever the active chat provider is.
+
+Both xAI providers are registered with the same `grokModels` list (`main.go`),
+which does not match that catalog:
+
+| Model                                 | `xai` (API key) | `xai-oauth` (subscription) |
+|---------------------------------------|-----------------|----------------------------|
+| `grok-4.20-0309-reasoning` (default)  | yes             | yes                        |
+| `grok-4.20-0309-non-reasoning`        | yes             | yes                        |
+| `grok-4-1-fast-non-reasoning`         | yes             | **not served**             |
+| `grok-3-mini`                         | yes             | **not served**             |
+| `grok-4.5` / `grok-4.3`               | no              | served, but unlisted       |
+
+The default works on both. The two cheap models are advertised but a
+subscription bearer 404s them — selecting either under `xai-oauth` fails
+upstream. `grok-4.5` and `grok-4.3` are the reverse: served, but
+`ProviderRegistry.SetActive` rejects any id absent from `Models`, so add them to
+`grokModels` before you can select them.
+
 ### Security notes
 
 - The token file holds a long-lived refresh token. It is written mode `0600`;
@@ -72,6 +101,11 @@ registry (same mechanism as switching to `xai` or `openrouter`).
   Even with an active subscription the token endpoint may return **HTTP 403**;
   OpenPaw surfaces this as `TierDeniedError` and re-login will not fix it — fall
   back to an `XAI_API_KEY` (`provider: xai`) instead.
+- **Image tools need the API key.** The vision tool (`grok-4-1-fast-non-reasoning`)
+  and `generate_image` (`grok-imagine-image`) register only when `XAI_API_KEY` is
+  set, and always bill that key — they never use the OAuth bearer. A
+  subscription-only install has no image tools at all, and the vision model is one
+  a subscription would not serve anyway.
 - **Single subscription per process.** `FileTokenSource` refreshes locally under
   an in-process lock. Sharing one subscription across many synths would race on
   the rotating refresh token and can brick the chain. Fleet-wide sharing is
